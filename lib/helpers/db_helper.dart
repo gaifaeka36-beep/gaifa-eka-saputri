@@ -1,4 +1,4 @@
-import 'package:sqflite/sqflite.dart'; // 
+import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../models/product_model.dart';
 
@@ -99,52 +99,66 @@ class DBHelper {
     }
   }
 
-  // --- CRUD PRODUK ---
+  // --- OPERASI DML: PRODUK ---
+
+  // 1. Tambah/Perbarui Produk
   Future<void> insertProduct(Product product) async {
     final db = await database;
-    await db.insert('products', {
-      'id': product.id,
-      'name': product.name,
-      'price': product.price,
-      'description': product.description,
-      'imageUrl': product.imageUrl,
-    }, conflictAlgorithm: ConflictAlgorithm.replace);
+    await db.insert(
+      'products',
+      product.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 
+  // 2. Ambil Semua Produk
   Future<List<Product>> getProducts() async {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query('products');
     return List.generate(maps.length, (i) => Product.fromMap(maps[i]));
   }
 
-  // --- CRUD KERANJANG ---
+  // --- OPERASI DML: KERANJANG ---
+
+  // 3. Tambah Item ke Keranjang
   Future<void> insertCart(Product product) async {
     final db = await database;
-    await db.insert('cart', product.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace);
-  }
-
-  Future<void> updateCart(Product product) async {
-    final db = await database;
-    await db.update(
+    await db.insert(
       'cart',
       product.toMap(),
-      where: 'id = ?',
-      whereArgs: [product.id],
+      conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
 
-  Future<List<Product>> getCart() async {
+  // 4. Ambil Semua Item Keranjang
+  Future<List<Product>> getCartItems() async {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query('cart');
     return List.generate(maps.length, (i) => Product.fromMap(maps[i]));
   }
 
-  Future<void> deleteCart(String id) async {
+  // 5. Update Kuantitas Item di Keranjang
+  Future<void> updateCartQuantity(String id, int quantity) async {
     final db = await database;
-    await db.delete('cart', where: 'id = ?', whereArgs: [id]);
+    await db.update(
+      'cart',
+      {'quantity': quantity},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
+  // 6. Hapus Satu Item dari Keranjang
+  Future<void> deleteCartItem(String id) async {
+    final db = await database;
+    await db.delete(
+      'cart',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  // Extra: Kosongkan Seluruh Isi Keranjang
   Future<void> clearCartTable() async {
     final db = await database;
     await db.delete('cart');

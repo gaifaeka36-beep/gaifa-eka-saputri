@@ -31,8 +31,8 @@ class CartScreen extends StatelessWidget {
       ),
       body: Consumer<CartProvider>(
         builder: (context, cart, child) {
-          final cartItemsList = cart.items.values.toList();
-          final productIds = cart.items.keys.toList();
+          // PERBAIKAN: Menggunakan list items langsung tanpa .values/.keys
+          final cartItemsList = cart.items;
 
           return Column(
             children: [
@@ -94,7 +94,7 @@ class CartScreen extends StatelessWidget {
                         itemCount: cart.items.length,
                         itemBuilder: (ctx, i) {
                           final item = cartItemsList[i];
-                          final productId = productIds[i];
+                          final productId = item.id; // Ambil ID langsung dari objek Product
 
                           return Card(
                             elevation: 2,
@@ -138,7 +138,7 @@ class CartScreen extends StatelessWidget {
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          item.title,
+                                          item.name, // PERBAIKAN: disesuaikan dari item.title ke item.name
                                           style: const TextStyle(
                                             fontWeight: FontWeight.bold,
                                             fontSize: 15,

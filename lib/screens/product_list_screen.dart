@@ -254,12 +254,10 @@ class _ProductListScreenState extends State<ProductListScreen> {
                                 ),
                               ),
                               onPressed: () {
-                                Provider.of<CartProvider>(context, listen: false).addItem(
-                                  product.id,
-                                  product.price,
-                                  product.name,
-                                  product.imageUrl,
-                                );
+                                // PERBAIKAN: Mengirim 1 objek product, bukan 4 argumen terpisah
+                                Provider.of<CartProvider>(context, listen: false)
+                                    .addItem(product);
+
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
                                     content: Text('${product.name} masuk keranjang'),
@@ -267,9 +265,10 @@ class _ProductListScreenState extends State<ProductListScreen> {
                                   ),
                                 );
                               },
-                              child: Row(
+                              // PERBAIKAN: Menambahkan const pada Row
+                              child: const Row(
                                 mainAxisSize: MainAxisSize.min,
-                                children: const [
+                                children: [
                                   Icon(
                                     Icons.shopping_cart_outlined,
                                     color: Colors.black,
