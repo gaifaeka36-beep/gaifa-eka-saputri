@@ -1,15 +1,20 @@
 import 'package:flutter/material.dart';
-import '../models/cart_item.dart';
-import '../models/product.dart';
 import '../helpers/db_helper.dart';
+import '../models/product_model.dart';
 
 class CartProvider with ChangeNotifier {
   Map<String, CartItem> _items = {};
+  final DBHelper _dbHelper = DBHelper();
 
-  // Getter yang dibutuhkan oleh CartScreen
   Map<String, CartItem> get items => {..._items};
 
-  int get itemCount => _items.length;
+  int get itemCount {
+    int total = 0;
+    _items.forEach((key, cartItem) {
+      total += cartItem.quantity;
+    });
+    return total;
+  }
 
   double get totalAmount {
     var total = 0.0;
@@ -19,82 +24,143 @@ class CartProvider with ChangeNotifier {
     return total;
   }
 
-  Future<void> fetchAndSetCart() async {
-    final dataList = await DBHelper.getData('cart');
+  // Mengambil data keranjang dari SQLite saat aplikasi dibuka
+  Future<void> fetchCartData() async {
+    final cartList = await _dbHelper.getCart();
     final Map<String, CartItem> loadedItems = {};
-    for (var item in dataList) {
-      final cartItem = CartItem.fromMap(item);
-      loadedItems[cartItem.id] = cartItem;
+
+    for (var item in cartList) {
+      loadedItems[item.id] = CartItem(
+        id: item.id,
+        title: item.name,
+        price: item.price.toDouble(),
+        quantity: item.quantity,
+        imageUrl: item.imageUrl,
+      );
     }
+
     _items = loadedItems;
     notifyListeners();
   }
 
-  Future<void> addItem(Product product) async {
-    if (_items.containsKey(product.id)) {
-      await increaseItemQuantity(product.id);
+  // Menambah produk baru ke keranjang
+  Future<void> addItem(String productId, double price, String title, String imageUrl) async {
+    if (_items.containsKey(productId)) {
+      final existing = _items[productId]!;
+      final updatedItem = CartItem(
+        id: existing.id,
+        title: existing.title,
+        price: existing.price,
+        quantity: existing.quantity + 1,
+        imageUrl: existing.imageUrl,
+      );
+
+      _items[productId] = updatedItem;
+
+      await _dbHelper.updateCart(Product(
+        id: productId,
+        name: title,
+        price: price,
+        description: '',
+        imageUrl: imageUrl,
+        quantity: updatedItem.quantity,
+      ));
     } else {
       final newItem = CartItem(
-        id: product.id,
-        title: product.name,
+        id: productId,
+        title: title,
+        price: price,
         quantity: 1,
-        price: product.price,
-        imageUrl: product.imageUrl,
+        imageUrl: imageUrl,
       );
-      _items[product.id] = newItem;
-      await DBHelper.insert('cart', newItem.toMap());
-      notifyListeners();
+
+      _items[productId] = newItem;
+
+      await _dbHelper.insertCart(Product(
+        id: productId,
+        name: title,
+        price: price,
+        description: '',
+        imageUrl: imageUrl,
+        quantity: 1,
+      ));
     }
+    notifyListeners();
   }
 
-  // Method untuk menambah jumlah item (+1)
+  // Menambah jumlah (+1)
   Future<void> increaseItemQuantity(String productId) async {
     if (!_items.containsKey(productId)) return;
 
     final existing = _items[productId]!;
-    final updated = CartItem(
+    final updatedItem = CartItem(
       id: existing.id,
       title: existing.title,
-      quantity: existing.quantity + 1,
       price: existing.price,
+      quantity: existing.quantity + 1,
       imageUrl: existing.imageUrl,
     );
-    _items[productId] = updated;
+
+    _items[productId] = updatedItem;
+
+    await _dbHelper.updateCart(Product(
+      id: productId,
+      name: existing.title,
+      price: existing.price,
+      description: '',
+      imageUrl: existing.imageUrl,
+      quantity: updatedItem.quantity,
+    ));
+
     notifyListeners();
-    await DBHelper.updateQuantity('cart', productId, updated.quantity);
   }
 
-  // Method untuk mengurangi jumlah item (-1)
+  // Mengurangi jumlah (-1), jika sisa 1 langsung dihapus
   Future<void> removeSingleItem(String productId) async {
     if (!_items.containsKey(productId)) return;
 
-    if (_items[productId]!.quantity > 1) {
-      final existing = _items[productId]!;
-      final updated = CartItem(
+    final existing = _items[productId]!;
+
+    if (existing.quantity > 1) {
+      final updatedItem = CartItem(
         id: existing.id,
         title: existing.title,
-        quantity: existing.quantity - 1,
         price: existing.price,
+        quantity: existing.quantity - 1,
         imageUrl: existing.imageUrl,
       );
-      _items[productId] = updated;
-      await DBHelper.updateQuantity('cart', productId, updated.quantity);
+
+      _items[productId] = updatedItem;
+
+      await _dbHelper.updateCart(Product(
+        id: productId,
+        name: existing.title,
+        price: existing.price,
+        description: '',
+        imageUrl: existing.imageUrl,
+        quantity: updatedItem.quantity,
+      ));
     } else {
       _items.remove(productId);
-      await DBHelper.delete('cart', productId);
+      await _dbHelper.deleteCart(productId); // 👈 Gunakan _dbHelper.deleteCart
     }
+
     notifyListeners();
   }
 
+  // Menghapus item dari keranjang
   Future<void> removeItem(String productId) async {
+    if (!_items.containsKey(productId)) return;
+
     _items.remove(productId);
+    await _dbHelper.deleteCart(productId); // 👈 Gunakan _dbHelper.deleteCart
     notifyListeners();
-    await DBHelper.delete('cart', productId);
   }
 
+  // Mengosongkan seluruh isi keranjang
   Future<void> clearCart() async {
-    _items = {};
+    _items.clear();
+    await _dbHelper.clearCartTable(); // 👈 Gunakan _dbHelper.clearCartTable
     notifyListeners();
-    await DBHelper.clear('cart');
   }
 }
