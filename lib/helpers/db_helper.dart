@@ -1,4 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
 import 'package:path/path.dart';
 import '../models/product_model.dart';
 
@@ -12,25 +15,38 @@ class DBHelper {
   }
 
   Future<Database> _initDB() async {
-    final dbPath = await getDatabasesPath();
-    final path = join(dbPath, 'app_database.db');
+    String path;
+
+    if (kIsWeb) {
+      // Inisialisasi Database Factory khusus Web
+      databaseFactory = databaseFactoryFfiWeb;
+      path = 'app_database.db'; // Jalur database virtual untuk IndexedDB Web
+    } else {
+      if (defaultTargetPlatform == TargetPlatform.windows ||
+          defaultTargetPlatform == TargetPlatform.linux ||
+          defaultTargetPlatform == TargetPlatform.macOS) {
+        // Inisialisasi Database Factory khusus Desktop
+        sqfliteFfiInit();
+        databaseFactory = databaseFactoryFfi;
+      }
+      final dbPath = await getDatabasesPath();
+      path = join(dbPath, 'app_database.db');
+    }
 
     return await openDatabase(
       path,
-      version: 3, // Naikkan versi ke 3 untuk memicu pembaharuan data otomatis
+      version: 3,
       onCreate: (db, version) async {
         await _createTablesAndSeed(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 3) {
-          // Timpa data awal dengan URL gambar yang baru dan valid
           await _insertInitialProducts(db);
         }
       },
     );
   }
 
-  // Fungsi membuat tabel dan mengisi data awal saat pertama kali DB dibuat
   Future<void> _createTablesAndSeed(Database db) async {
     await db.execute('''
       CREATE TABLE products(
@@ -56,7 +72,6 @@ class DBHelper {
     await _insertInitialProducts(db);
   }
 
-  // Fungsi khusus untuk memasukkan 4 data produk awal (URL Diperbaiki)
   Future<void> _insertInitialProducts(Database db) async {
     final initialProducts = [
       {
@@ -90,7 +105,6 @@ class DBHelper {
     ];
 
     for (var item in initialProducts) {
-      // Menggunakan replace agar URL lama yang rusak langsung ditimpa
       await db.insert(
         'products',
         item,
@@ -99,68 +113,64 @@ class DBHelper {
     }
   }
 
-  // --- OPERASI DML: PRODUK ---
-
-  // 1. Tambah/Perbarui Produk
+  // --- CRUD PRODUK ---
   Future<void> insertProduct(Product product) async {
     final db = await database;
-    await db.insert(
-      'products',
-      product.toMap(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await db.insert('products', {
+      'id': product.id,
+      'name': product.name,
+      'price': product.price,
+      'description': product.description,
+      'imageUrl': product.imageUrl,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
-  // 2. Ambil Semua Produk
   Future<List<Product>> getProducts() async {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query('products');
     return List.generate(maps.length, (i) => Product.fromMap(maps[i]));
   }
 
-  // --- OPERASI DML: KERANJANG ---
-
-  // 3. Tambah Item ke Keranjang
+  // --- CRUD KERANJANG ---
   Future<void> insertCart(Product product) async {
     final db = await database;
-    await db.insert(
-      'cart',
-      product.toMap(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await db.insert('cart', product.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
-  // 4. Ambil Semua Item Keranjang
-  Future<List<Product>> getCartItems() async {
-    final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query('cart');
-    return List.generate(maps.length, (i) => Product.fromMap(maps[i]));
-  }
-
-  // 5. Update Kuantitas Item di Keranjang
-  Future<void> updateCartQuantity(String id, int quantity) async {
+  Future<void> updateCart(Product product) async {
     final db = await database;
     await db.update(
       'cart',
-      {'quantity': quantity},
+      product.toMap(),
       where: 'id = ?',
-      whereArgs: [id],
+      whereArgs: [product.id],
     );
   }
 
-  // 6. Hapus Satu Item dari Keranjang
-  Future<void> deleteCartItem(String id) async {
+  Future<void> deleteCart(String id) async {
     final db = await database;
-    await db.delete(
-      'cart',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    await db.delete('cart', where: 'id = ?', whereArgs: [id]);
   }
 
-  // Extra: Kosongkan Seluruh Isi Keranjang
   Future<void> clearCartTable() async {
     final db = await database;
     await db.delete('cart');
+  }
+
+  Future<List<Product>> getCart() async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query('cart');
+
+    return List.generate(maps.length, (i) {
+      return Product(
+        id: maps[i]['id'].toString(),
+        name: maps[i]['name'] ?? maps[i]['title'] ?? '',
+        price: (maps[i]['price'] as num).toDouble(),
+        description: maps[i]['description'] ?? '',
+        imageUrl: maps[i]['imageUrl'] ?? '',
+        quantity: maps[i]['quantity'] as int? ?? 1,
+      );
+    });
   }
 }
