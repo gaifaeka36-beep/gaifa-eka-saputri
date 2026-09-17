@@ -8,7 +8,7 @@ class ProductProvider with ChangeNotifier {
 
   List<Product> get products => [..._products];
 
-  // Data awal agar catalog lama tidak hilang
+  // Data default jika SQLite masih kosong
   final List<Product> _initialProducts = [
     Product(
       id: 'p1',
@@ -40,10 +40,10 @@ class ProductProvider with ChangeNotifier {
     ),
   ];
 
+  // Fetch seluruh produk dari SQLite
   Future<void> fetchAllData() async {
     final dbProducts = await _dbHelper.getProducts();
-    
-    // Jika database SQLite masih kosong, isi dengan data default di atas
+
     if (dbProducts.isEmpty) {
       for (var item in _initialProducts) {
         await _dbHelper.insertProduct(item);
@@ -52,21 +52,34 @@ class ProductProvider with ChangeNotifier {
     } else {
       _products = dbProducts;
     }
-    
+
     notifyListeners();
   }
 
-  Future<void> addProduct(String name, double price, String imageUrl) async {
+  // Menambah produk baru ke SQLite dan State
+  Future<void> addProduct(String name, double price, String imageUrl, {String description = ''}) async {
     final newProduct = Product(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       name: name,
       price: price,
-      description: '',
+      description: description,
       imageUrl: imageUrl,
     );
 
     await _dbHelper.insertProduct(newProduct);
     _products.add(newProduct);
     notifyListeners();
+  }
+
+  // Menghapus produk dari katalog
+  Future<void> deleteProduct(String id) async {
+    await _dbHelper.deleteProduct(id);
+    _products.removeWhere((prod) => prod.id == id);
+    notifyListeners();
+  }
+
+  // Mencari produk berdasarkan ID
+  Product findById(String id) {
+    return _products.firstWhere((prod) => prod.id == id);
   }
 }

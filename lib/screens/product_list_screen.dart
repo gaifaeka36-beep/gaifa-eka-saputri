@@ -31,6 +31,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
     super.dispose();
   }
 
+  // Pop-up Dialog untuk Tambah Produk Baru
   void _showAddProductDialog(BuildContext context) {
     final nameController = TextEditingController();
     final priceController = TextEditingController();
@@ -55,7 +56,10 @@ class _ProductListScreenState extends State<ProductListScreen> {
               ),
               TextField(
                 controller: imageController,
-                decoration: const InputDecoration(labelText: 'URL Gambar'),
+                decoration: const InputDecoration(
+                  labelText: 'URL Gambar',
+                  hintText: 'https://...',
+                ),
               ),
             ],
           ),
@@ -110,26 +114,25 @@ class _ProductListScreenState extends State<ProductListScreen> {
           ),
         ),
         actions: [
-          // KODE BARU (DENGAN BADGE JUMLAH ITEM)
-Consumer<CartProvider>(
-  builder: (_, cart, ch) => Badge(
-    label: Text('${cart.itemCount}'),
-    isLabelVisible: cart.itemCount > 0,
-    child: ch,
-  ),
-  child: IconButton(
-    icon: const Icon(Icons.shopping_cart, color: Colors.white, size: 26),
-    onPressed: () {
-      Navigator.of(context).push(
-        MaterialPageRoute(builder: (ctx) => const CartScreen()),
-      );
-    },
-  ),
-),
+          IconButton(
+            icon: Image.network(
+              'https://cdn-icons-png.flaticon.com/512/1170/1170678.png',
+              width: 28,
+              height: 28,
+              errorBuilder: (_, __, ___) =>
+                  const Icon(Icons.shopping_cart, color: Colors.black),
+            ),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (ctx) => const CartScreen()),
+              );
+            },
+          ),
         ],
       ),
       body: Column(
         children: [
+          // Baris Pencarian
           Padding(
             padding: const EdgeInsets.all(12.0),
             child: Container(
@@ -168,12 +171,20 @@ Consumer<CartProvider>(
               ),
             ),
           ),
+
+          // Daftar Katalog Produk
           Expanded(
             child: Consumer<ProductProvider>(
               builder: (ctx, productData, child) {
                 final filteredProducts = productData.products.where((prod) {
                   return prod.name.toLowerCase().contains(_searchQuery);
                 }).toList();
+
+                if (filteredProducts.isEmpty) {
+                  return const Center(
+                    child: Text('Buku tidak ditemukan'),
+                  );
+                }
 
                 return ListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -202,6 +213,7 @@ Consumer<CartProvider>(
                         padding: const EdgeInsets.all(12.0),
                         child: Row(
                           children: [
+                            // Gambar Cover Buku
                             SizedBox(
                               width: 65,
                               height: 85,
@@ -217,6 +229,8 @@ Consumer<CartProvider>(
                               ),
                             ),
                             const SizedBox(width: 14),
+
+                            // Detail Nama & Harga
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -243,6 +257,8 @@ Consumer<CartProvider>(
                                 ],
                               ),
                             ),
+
+                            // Tombol Tambah ke Keranjang
                             OutlinedButton(
                               style: OutlinedButton.styleFrom(
                                 backgroundColor: buttonBg,
@@ -300,6 +316,8 @@ Consumer<CartProvider>(
           ),
         ],
       ),
+
+      // Tombol Floating "+ Tambah produk"
       floatingActionButton: Padding(
         padding: const EdgeInsets.only(bottom: 6),
         child: ElevatedButton.icon(
@@ -323,6 +341,8 @@ Consumer<CartProvider>(
           ),
         ),
       ),
+
+      // Navigasi Bawah Merah/Kuning
       bottomNavigationBar: Container(
         height: 50,
         color: primaryRed,

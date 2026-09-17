@@ -1,175 +1,214 @@
-import 'package:flutter/foundation.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
-import 'package:path/path.dart';
-import '../models/product_model.dart';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/cart_provider.dart';
 
-class DBHelper {
-  static Database? _database;
+class CartScreen extends StatefulWidget {
+  const CartScreen({super.key});
 
-  Future<Database> get database async {
-    if (_database != null) return _database!;
-    _database = await _initDB();
-    return _database!;
+  @override
+  State<CartScreen> createState() => _CartScreenState();
+}
+
+class _CartScreenState extends State<CartScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Memuat data dari SQLite saat layar keranjang dibuka
+    Future.microtask(() =>
+        Provider.of<CartProvider>(context, listen: false).fetchCartData());
   }
 
-  Future<Database> _initDB() async {
-    String path;
+  @override
+  Widget build(BuildContext context) {
+    const Color primaryRed = Color(0xFFD32F2F);
+    const Color bgCream = Color(0xFFFFF8E7);
 
-    if (kIsWeb) {
-      // Inisialisasi Database Factory khusus Web
-      databaseFactory = databaseFactoryFfiWeb;
-      path = 'app_database.db'; // Jalur database virtual untuk IndexedDB Web
-    } else {
-      if (defaultTargetPlatform == TargetPlatform.windows ||
-          defaultTargetPlatform == TargetPlatform.linux ||
-          defaultTargetPlatform == TargetPlatform.macOS) {
-        // Inisialisasi Database Factory khusus Desktop
-        sqfliteFfiInit();
-        databaseFactory = databaseFactoryFfi;
-      }
-      final dbPath = await getDatabasesPath();
-      path = join(dbPath, 'app_database.db');
-    }
+    return Scaffold(
+      backgroundColor: bgCream,
+      appBar: AppBar(
+        backgroundColor: primaryRed,
+        title: const Text(
+          'KERANJANG BELANJA',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ),
+      body: Consumer<CartProvider>(
+        builder: (ctx, cart, child) {
+          final cartItems = cart.items.values.toList();
 
-    return await openDatabase(
-      path,
-      version: 3,
-      onCreate: (db, version) async {
-        await _createTablesAndSeed(db);
-      },
-      onUpgrade: (db, oldVersion, newVersion) async {
-        if (oldVersion < 3) {
-          await _insertInitialProducts(db);
-        }
-      },
+          if (cartItems.isEmpty) {
+            return const Center(
+              child: Text(
+                'Keranjang Anda masih kosong',
+                style: TextStyle(fontSize: 16, color: Colors.grey),
+              ),
+            );
+          }
+
+          return Column(
+            children: [
+              Expanded(
+                child: ListView.builder(
+                  padding: const EdgeInsets.all(12),
+                  itemCount: cartItems.length,
+                  itemBuilder: (ctx, i) {
+                    final item = cartItems[i];
+
+                    String imageUrl = item.imageUrl.trim();
+                    if (imageUrl.isNotEmpty && !imageUrl.startsWith('http')) {
+                      imageUrl = 'https://$imageUrl';
+                    }
+
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      child: Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Row(
+                          children: [
+                            // Gambar Produk
+                            SizedBox(
+                              width: 60,
+                              height: 75,
+                              child: Image.network(
+                                imageUrl,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Container(
+                                  color: Colors.grey.shade300,
+                                  child: const Icon(Icons.book, color: Colors.grey),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+
+                            // Detail Info
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    item.title,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Rp ${item.price.toStringAsFixed(0)}',
+                                    style: const TextStyle(
+                                      color: Colors.red,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            // Pengatur Jumlah (+ / -)
+                            Row(
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
+                                  onPressed: () {
+                                    cart.removeSingleItem(item.id);
+                                  },
+                                ),
+                                Text(
+                                  '${item.quantity}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.add_circle_outline, color: Colors.green),
+                                  onPressed: () {
+                                    cart.increaseItemQuantity(item.id);
+                                  },
+                                ),
+                              ],
+                            ),
+
+                            // Tombol Hapus Total Item
+                            IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.grey),
+                              onPressed: () {
+                                cart.removeItem(item.id);
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+
+              // Ringkasan Total & Checkout
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black12,
+                      blurRadius: 4,
+                      offset: Offset(0, -2),
+                    )
+                  ],
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Total Pembayaran:',
+                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                        ),
+                        Text(
+                          'Rp ${cart.totalAmount.toStringAsFixed(0)}',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: primaryRed,
+                          ),
+                        ),
+                      ],
+                    ),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: primaryRed,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
+                      ),
+                      onPressed: () {
+                        // Fitur checkout jika diperlukan
+                      },
+                      child: const Text(
+                        'CHECKOUT',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
+      ),
     );
-  }
-
-  Future<void> _createTablesAndSeed(Database db) async {
-    await db.execute('''
-      CREATE TABLE products(
-        id TEXT PRIMARY KEY,
-        name TEXT,
-        price REAL,
-        description TEXT,
-        imageUrl TEXT
-      )
-    ''');
-
-    await db.execute('''
-      CREATE TABLE cart(
-        id TEXT PRIMARY KEY,
-        name TEXT,
-        price REAL,
-        description TEXT,
-        imageUrl TEXT,
-        quantity INTEGER
-      )
-    ''');
-
-    await _insertInitialProducts(db);
-  }
-
-  Future<void> _insertInitialProducts(Database db) async {
-    final initialProducts = [
-      {
-        'id': 'p1',
-        'name': 'Laut Bercerita',
-        'price': 150000.0,
-        'description': 'Novel karya Leila S. Chudori',
-        'imageUrl': 'https://m.media-amazon.com/images/S/compressed.photo.goodreads.com/books/1516602134i/36393774.jpg',
-      },
-      {
-        'id': 'p2',
-        'name': 'Bumi Manusia',
-        'price': 170000.0,
-        'description': 'Novel karya Pramoedya Ananta Toer',
-        'imageUrl': 'https://m.media-amazon.com/images/S/compressed.photo.goodreads.com/books/1565658920i/1398034.jpg',
-      },
-      {
-        'id': 'p3',
-        'name': 'Hujan',
-        'price': 90000.0,
-        'description': 'Novel karya Tere Liye',
-        'imageUrl': 'https://m.media-amazon.com/images/S/compressed.photo.goodreads.com/books/1451905281i/28446637.jpg',
-      },
-      {
-        'id': 'p4',
-        'name': 'Rumah Untuk Alie',
-        'price': 120000.0,
-        'description': 'Novel populer',
-        'imageUrl': 'https://m.media-amazon.com/images/S/compressed.photo.goodreads.com/books/1715849329i/213533825.jpg',
-      },
-    ];
-
-    for (var item in initialProducts) {
-      await db.insert(
-        'products',
-        item,
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
-    }
-  }
-
-  // --- CRUD PRODUK ---
-  Future<void> insertProduct(Product product) async {
-    final db = await database;
-    await db.insert('products', {
-      'id': product.id,
-      'name': product.name,
-      'price': product.price,
-      'description': product.description,
-      'imageUrl': product.imageUrl,
-    }, conflictAlgorithm: ConflictAlgorithm.replace);
-  }
-
-  Future<List<Product>> getProducts() async {
-    final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query('products');
-    return List.generate(maps.length, (i) => Product.fromMap(maps[i]));
-  }
-
-  // --- CRUD KERANJANG ---
-  Future<void> insertCart(Product product) async {
-    final db = await database;
-    await db.insert('cart', product.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace);
-  }
-
-  Future<void> updateCart(Product product) async {
-    final db = await database;
-    await db.update(
-      'cart',
-      product.toMap(),
-      where: 'id = ?',
-      whereArgs: [product.id],
-    );
-  }
-
-  Future<void> deleteCart(String id) async {
-    final db = await database;
-    await db.delete('cart', where: 'id = ?', whereArgs: [id]);
-  }
-
-  Future<void> clearCartTable() async {
-    final db = await database;
-    await db.delete('cart');
-  }
-
-  Future<List<Product>> getCart() async {
-    final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query('cart');
-
-    return List.generate(maps.length, (i) {
-      return Product(
-        id: maps[i]['id'].toString(),
-        name: maps[i]['name'] ?? maps[i]['title'] ?? '',
-        price: (maps[i]['price'] as num).toDouble(),
-        description: maps[i]['description'] ?? '',
-        imageUrl: maps[i]['imageUrl'] ?? '',
-        quantity: maps[i]['quantity'] as int? ?? 1,
-      );
-    });
   }
 }

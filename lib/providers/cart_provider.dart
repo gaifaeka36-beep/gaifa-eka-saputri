@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../helpers/db_helper.dart';
+import '../models/cart_item.dart';
 import '../models/product_model.dart';
 
 class CartProvider with ChangeNotifier {
@@ -33,7 +34,7 @@ class CartProvider with ChangeNotifier {
       loadedItems[item.id] = CartItem(
         id: item.id,
         title: item.name,
-        price: item.price.toDouble(),
+        price: item.price,
         quantity: item.quantity,
         imageUrl: item.imageUrl,
       );
@@ -142,7 +143,7 @@ class CartProvider with ChangeNotifier {
       ));
     } else {
       _items.remove(productId);
-      await _dbHelper.deleteCart(productId); // 👈 Gunakan _dbHelper.deleteCart
+      await _dbHelper.deleteCart(productId);
     }
 
     notifyListeners();
@@ -153,14 +154,14 @@ class CartProvider with ChangeNotifier {
     if (!_items.containsKey(productId)) return;
 
     _items.remove(productId);
-    await _dbHelper.deleteCart(productId); // 👈 Gunakan _dbHelper.deleteCart
+    await _dbHelper.deleteCart(productId);
     notifyListeners();
   }
 
   // Mengosongkan seluruh isi keranjang
   Future<void> clearCart() async {
     _items.clear();
-    await _dbHelper.clearCartTable(); // 👈 Gunakan _dbHelper.clearCartTable
+    await _dbHelper.clearCartTable();
     notifyListeners();
   }
 }
