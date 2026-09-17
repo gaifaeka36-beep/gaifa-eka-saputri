@@ -110,20 +110,22 @@ class _ProductListScreenState extends State<ProductListScreen> {
           ),
         ),
         actions: [
-          IconButton(
-            icon: Image.network(
-              'https://cdn-icons-png.flaticon.com/512/1170/1170678.png',
-              width: 28,
-              height: 28,
-              errorBuilder: (_, __, ___) =>
-                  const Icon(Icons.shopping_cart, color: Colors.black),
-            ),
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (ctx) => const CartScreen()),
-              );
-            },
-          ),
+          // KODE BARU (DENGAN BADGE JUMLAH ITEM)
+Consumer<CartProvider>(
+  builder: (_, cart, ch) => Badge(
+    label: Text('${cart.itemCount}'),
+    isLabelVisible: cart.itemCount > 0,
+    child: ch,
+  ),
+  child: IconButton(
+    icon: const Icon(Icons.shopping_cart, color: Colors.white, size: 26),
+    onPressed: () {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (ctx) => const CartScreen()),
+      );
+    },
+  ),
+),
         ],
       ),
       body: Column(
@@ -254,10 +256,12 @@ class _ProductListScreenState extends State<ProductListScreen> {
                                 ),
                               ),
                               onPressed: () {
-                                // PERBAIKAN: Mengirim 1 objek product, bukan 4 argumen terpisah
-                                Provider.of<CartProvider>(context, listen: false)
-                                    .addItem(product);
-
+                                Provider.of<CartProvider>(context, listen: false).addItem(
+                                  product.id,
+                                  product.price,
+                                  product.name,
+                                  product.imageUrl,
+                                );
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
                                     content: Text('${product.name} masuk keranjang'),
@@ -265,10 +269,9 @@ class _ProductListScreenState extends State<ProductListScreen> {
                                   ),
                                 );
                               },
-                              // PERBAIKAN: Menambahkan const pada Row
-                              child: const Row(
+                              child: Row(
                                 mainAxisSize: MainAxisSize.min,
-                                children: [
+                                children: const [
                                   Icon(
                                     Icons.shopping_cart_outlined,
                                     color: Colors.black,
