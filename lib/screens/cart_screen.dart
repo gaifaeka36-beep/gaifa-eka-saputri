@@ -2,8 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/cart_provider.dart';
 
-class CartScreen extends StatelessWidget {
+class CartScreen extends StatefulWidget {
   const CartScreen({super.key});
+
+  @override
+  State<CartScreen> createState() => _CartScreenState();
+}
+
+class _CartScreenState extends State<CartScreen> {
+ @override
+void initState() {
+  super.initState();
+  // Memanggil fetchCartData() sesuai nama fungsi di provider kamu
+  Future.microtask(() async {
+    if (!mounted) return;
+    await Provider.of<CartProvider>(context, listen: false).fetchCartData();
+  });
+}
 
   @override
   Widget build(BuildContext context) {
@@ -31,8 +46,8 @@ class CartScreen extends StatelessWidget {
       ),
       body: Consumer<CartProvider>(
         builder: (context, cart, child) {
-          // PERBAIKAN: Menggunakan list items langsung tanpa .values/.keys
-          final cartItemsList = cart.items;
+          final cartItemsList = cart.items.values.toList();
+          final productIds = cart.items.keys.toList();
 
           return Column(
             children: [
@@ -94,7 +109,7 @@ class CartScreen extends StatelessWidget {
                         itemCount: cart.items.length,
                         itemBuilder: (ctx, i) {
                           final item = cartItemsList[i];
-                          final productId = item.id; // Ambil ID langsung dari objek Product
+                          final productId = productIds[i];
 
                           return Card(
                             elevation: 2,
@@ -135,10 +150,11 @@ class CartScreen extends StatelessWidget {
                                   // Judul & Total Harga Produk
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          item.name, // PERBAIKAN: disesuaikan dari item.title ke item.name
+                                          item.title,
                                           style: const TextStyle(
                                             fontWeight: FontWeight.bold,
                                             fontSize: 15,
@@ -205,7 +221,8 @@ class CartScreen extends StatelessWidget {
                                             color: Colors.white,
                                           ),
                                           onPressed: () {
-                                            cart.increaseItemQuantity(productId);
+                                            cart.increaseItemQuantity(
+                                                productId);
                                           },
                                         ),
                                       ],
